@@ -1,0 +1,10 @@
+.vscode
+__pycache__
+*.egg-info 
+dist
+*.ncu-rep
+*.nsys-rep
+bench/bin
+local
+*_NOT_USE.cu
+*.mxblas_jit_generated.cuh

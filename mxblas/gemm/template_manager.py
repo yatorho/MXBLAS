@@ -1,0 +1,145 @@
+import os
+from functools import lru_cache
+from typing import Any, Dict, List, Type
+
+from mxblas.project.const import DEBUG_FLAG, PRINT_MATCHING_FLAG
+
+from ..jit.compiler import get_jit_include_dir
+from .descriptor import MXGEMMDescriptor, global_keys
+from .generator import NaiveGenerator
+from .template import KernelTemplate, common_conditions
+
+
+def to_pa_key_value(desc: MXGEMMDescriptor):
+    """
+    Converts the MXGEMMDescriptor to a dictionary of key-value pairs for the PA keys.
+    """
+
+    kvs = {
+        "K_M": desc.os.m,
+        "K_N": desc.os.n,
+        "K_K": desc.os.k,
+        "K_SM": desc.ss.m,
+        "K_SN": desc.ss.n,
+        "K_SK": desc.ss.k,
+        "K_Quant": desc.qs.enable,
+        "K_QM": desc.qs.m,
+        "K_QN": desc.qs.n,
+        "K_A_Layout": desc.layouts.a_layout,
+        "K_B_Layout": desc.layouts.b_layout,
+        "K_C_Layout": desc.layouts.c_layout,
+        "K_AS_Layout": desc.layouts.as_layout,
+        "K_BS_Layout": desc.layouts.bs_layout,
+        "K_CS_Layout": desc.layouts.cs_layout,
+        "K_AB_Type": desc.input_dtype,
+        "K_C_Type": desc.output_dtype,
+        "K_AB_Scale_Type": desc.scales_dtype,
+        "K_C_Scale_Type": desc.scales_dtype,
+    }
+    return kvs
+
+
+def save_to_file(code: str, filename: str):
+    with open(filename, "w") as f:
+        f.write(code)
+
+
+def to_include_name(name: str) -> str:
+    return name.lower().replace(" ", "_") + ".mxblas_jit_generated"
+
+
+class TemplateManager:
+    """
+    A singleton class that manages the MX-GEMM templates.
+    """
+
+    _instance = None
+    templates: Dict[str, KernelTemplate]
+    cache: Dict[MXGEMMDescriptor, List[KernelTemplate]]
+    templates_root: str
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(TemplateManager, cls).__new__(cls)
+            cls._instance.templates = {}
+            cls._instance.cache = {}
+            cls._instance.templates_root = get_jit_include_dir()
+        return cls._instance
+
+    def register_template(self, template: KernelTemplate):
+        if template.name in self.templates:
+            raise ValueError(f"Template with name {template.name} already exists.")
+        self.templates[template.name()] = template
+
+        return self
+
+    def match_template(
+        self,
+        descriptor: MXGEMMDescriptor,
+    ) -> List[KernelTemplate]:
+        """
+        Matches the given descriptor with the registered templates.
+        """
+        if descriptor in self.cache:
+            if os.getenv(DEBUG_FLAG, None) or os.getenv(PRINT_MATCHING_FLAG, None):
+                print(f"Using cached templates for descriptor: {descriptor}")
+            return self.cache[descriptor]
+
+        matched_templates = []
+        for template in self.templates.values():
+            to_match_kvs = to_pa_key_value(descriptor)
+
+            template_matched = template.match_condition().evaluate(to_match_kvs)
+            common_matched = common_conditions.evaluate(to_match_kvs)
+
+            if os.getenv(DEBUG_FLAG, None) or os.getenv(PRINT_MATCHING_FLAG, None):
+                print(
+                    f"Matching template {template.name()} with descriptor {descriptor}:\n"
+                    f"  Template matched: {template_matched}\n"
+                    f"  Common conditions matched: {common_matched}\n"
+                )
+
+            if template_matched and common_matched:
+                matched_templates.append(template)
+
+        if not matched_templates:
+            raise ValueError(f"No matching template found for descriptor: {descriptor}")
+
+        # Cache the matched templates for the descriptor
+        self.cache[descriptor] = matched_templates
+
+        return matched_templates
+
+    @lru_cache(maxsize=None)
+    def generate_template(
+        self,
+        descriptor: MXGEMMDescriptor,
+    ):
+        matched_templates = self.match_template(descriptor)
+        assert len(matched_templates) > 0, "No matching templates found."
+
+        include_names = []
+        for template in matched_templates:
+            code = template.generate()
+            include_name = to_include_name(f'mxblas/{template.name()}') + '.cuh'
+
+            if os.getenv(DEBUG_FLAG, None) or os.getenv(PRINT_MATCHING_FLAG, None):
+                print(
+                    f"Generated template {template.name()}(include_name: {include_name}) 's code for descriptor {descriptor}"
+                )
+
+            save_to_file(code, os.path.join(self.templates_root, include_name))
+            include_names.append(f'"{include_name}"')
+
+        return zip(include_names, matched_templates)
+
+
+manager = TemplateManager()
+
+
+def register_template(template: Type[KernelTemplate]):
+    """
+    Register a template with the TemplateManager.
+    """
+    manager.register_template(template())
+    return manager  # for chaining

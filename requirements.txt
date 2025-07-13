@@ -1,0 +1,8 @@
+fbgemm_gpu==1.0.0+cu124
+sgl_kernel==0.0.5
+torch==2.5.1+cu124
+transformer_engine==1.13.0
+transformer_engine_cu12==1.13.0
+transformer_engine_torch==1.13.0
+einops==0.8.1
+triton==3.1.0
