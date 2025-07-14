@@ -113,7 +113,7 @@ pip install -e .
 
 This project provides two simple test scripts to validate functionality and performance.
 
-1. Run the JIT test
+i. Run the JIT test
 ```bash
 python tests/test_jit.py
 ```
@@ -126,7 +126,7 @@ Hello, MXBLAS!
 JIT test passed
 ```
 
-2. Run the MX-GEMM performance/correctness test
+ii. Run the MX-GEMM performance/correctness test
 ```bash
 python tests/test_mxgemm.py
 ```
