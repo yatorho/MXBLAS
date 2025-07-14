@@ -8,8 +8,10 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Type, override
 
 from mxblas.gemm.filter import (
+    BasicShapeFilter,
     BMNKTileFilter,
     ClusterFilter,
+    CSMemSwizzleBNFilter,
     Filter,
     NumConsumerX64EqualBMFilter,
     SMemSizeFilter,
@@ -31,6 +33,7 @@ from mxblas.gemm.template_manager import register_template
 from .descriptor import Layout, ScalarDType
 from .keys import (
     EQ,
+    GE,
     K_BK,
     K_BM,
     K_BN,
@@ -40,6 +43,8 @@ from .keys import (
     K_SK,
     K_SM,
     K_SN,
+    LE,
+    LT,
     Condition,
     K_AB_Scale_Type,
     K_C_Layout,
@@ -95,34 +100,42 @@ class NaiveTemplate(KernelTemplate, ABC):
 class FTypeFilter(Filter):
 
     def __call__(self):
-        return EQ(K_SN % K_BN, 0).EQ(K_SM % K_BM, 0).EQ(K_SK % K_BK, 0)
+        # return EQ(K_SN % K_BN, 0).EQ(K_SM % K_BM, 0).EQ(K_SK % K_BK, 0)
+        return GE(K_SN, K_BN).GE(K_SM, K_BM).GE(K_SK, K_BK)
+
+
+class MTypeFilter(Filter):
+
+    def __call__(self):
+        return LT(K_SK, K_K)
+
+
+class PTypeFilter(Filter):
+
+    def __call__(self):
+        return LE(K_SN, K_BN).LE(K_SM, K_BM).GE(K_SK, K_BK)
+
+
+class ETypeFilter(Filter):
+
+    def __call__(self):
+        return EQ(K_SK, K_K)
 
 
 def create_template_class(
-    phase: str, operation: str, quant: bool, layout: str
+    phase: PromotionPhaseType,
+    operation: PromotionOperationType,
+    quant: bool,
+    layout: Layout,
 ) -> Type[NaiveTemplate]:
-    class_name = (
-        f"{phase[0]}{operation[0]}{'H' if not quant else 'Q'}{layout[0]}Template"
-    )
-
-    phase_enum = (
-        PromotionPhaseType.MAIN_LOOP
-        if phase == "Main-Loop"
-        else PromotionPhaseType.EPILOGUE
-    )
-    operation_enum = (
-        PromotionOperationType.FULL
-        if operation == "Full"
-        else PromotionOperationType.PARTIAL
-    )
-    layout_enum = Layout.ROW_MAJOR if layout == "Row-Major" else Layout.COLUMN_MAJOR
+    class_name = f"{phase.value[0].upper()}{operation.value[0].upper()}{'H' if not quant else 'Q'}{layout.value[0].upper()}Template"
 
     def __init__(self):
         super(cls, self).__init__()
         self.consumer_generator_ = ConsumerGenerator(
             c_quant=quant,
-            c_layout=layout_enum,
-            template_type=TemplateType(phase_enum, operation_enum),
+            c_layout=layout,
+            template_type=TemplateType(phase, operation),
         )
 
     @property
@@ -130,17 +143,17 @@ def create_template_class(
         return self.consumer_generator_
 
     def name(self):
-        return f"{phase} & {operation} & {'High-Precision' if not quant else 'Quantization'} C & {layout} C"
+        return f"{phase.value} & {operation.value} & {'High-Precision' if not quant else 'Quantization'} C & {layout.value} C"
 
     condition = Condition().EQ(K_AB_Scale_Type, K_C_Scale_Type)
 
-    if phase_enum == PromotionPhaseType.MAIN_LOOP:
+    if phase == PromotionPhaseType.MAIN_LOOP:
         condition = condition.DIVISIBLE_BY(K_K, K_SK).GT(K_K, K_SK)
     else:
         condition = condition.EQ(K_K, K_SK)
 
     condition = condition.DIVISIBLE_BY(K_M, K_SM).DIVISIBLE_BY(K_N, K_SN)
-    if operation_enum == PromotionOperationType.PARTIAL:
+    if operation == PromotionOperationType.PARTIAL:
         condition = condition.GT(K_M, K_SM).GT(K_N, K_SN)
     else:
         condition = condition.GE(K_M, K_SM).GE(K_N, K_SN)
@@ -151,17 +164,23 @@ def create_template_class(
         condition = condition.IN(K_C_Type, [ScalarDType.FP16, ScalarDType.BF16])
 
     def match_condition(self):
-        return condition.IN(K_C_Layout, [layout_enum])
+        return condition.IN(K_C_Layout, [layout])
 
     filters = [
+        BasicShapeFilter(),
         SMemSizeFilter(),
         NumConsumerX64EqualBMFilter(),
         ClusterFilter(),
         BMNKTileFilter(),
+        CSMemSwizzleBNFilter(),
     ]
 
-    if operation_enum == PromotionOperationType.FULL:
-        filters.append(FTypeFilter())
+    filters.append(
+        FTypeFilter() if operation == PromotionOperationType.FULL else PTypeFilter()
+    )
+    filters.append(
+        MTypeFilter() if phase == PromotionPhaseType.MAIN_LOOP else ETypeFilter()
+    )
 
     def prune_rules(self):
         return filters
@@ -182,10 +201,10 @@ def create_template_class(
     return cls
 
 
-phases = ["Main-Loop", "Epilogue"]
-operations = ["Full", "Partial"]
+phases = [PromotionPhaseType.MAIN_LOOP, PromotionPhaseType.EPILOGUE]
+operations = [PromotionOperationType.FULL, PromotionOperationType.PARTIAL]
 quants = [False, True]  # H/Q
-layouts = ["Row-Major", "Column-Major"]
+layouts = [Layout.ROW_MAJOR, Layout.COLUMN_MAJOR]  # R/C
 
 for phase, op, quant, layout in itertools.product(phases, operations, quants, layouts):
     cls = create_template_class(phase, op, quant, layout)

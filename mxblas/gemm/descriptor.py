@@ -11,6 +11,15 @@ class ScalarDType(Enum):
     FP16 = "FP16"
 
 
+scalar_type_bytes = {
+    ScalarDType.FP8_E4M3: 1,
+    ScalarDType.FP8_E5M2: 1,
+    ScalarDType.FP32: 4,
+    ScalarDType.BF16: 2,
+    ScalarDType.FP16: 2,
+}
+
+
 class Layout(Enum):
     ROW_MAJOR = "ROW_MAJOR"
     COLUMN_MAJOR = "COLUMN_MAJOR"

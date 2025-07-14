@@ -29,25 +29,14 @@ def apply_prune_rules(
     template: KernelTemplate,
     desc: MXGEMMDescriptor,
     space: Collection[Dict[str, Any]],
-) -> tuple:
+):
     conditions = template.prune_rules()
 
-    space_pruned = []
     for params in space:
         params |= to_pa_key_value(desc).items()
 
-        # if params["K_BM"] == 64 and params["K_BN"] == 64:
-        #     assert  not conditions[0]().evaluate(params)
-
         if all(condition().evaluate(params) for condition in conditions):
-            space_pruned.append(params)
-
-    if os.getenv(PRINT_AUTOTUNE_FLAG, None) or os.getenv(DEBUG_FLAG, None):
-        print(
-            f"Pruning space [{len(space)} -> {len(space_pruned)}] for template {template.name()} with descriptor {desc}."
-        )
-
-    return tuple(space_pruned)
+            yield params
 
 
 def to_cpp_value(space: Iterable[Dict[str, Any]]) -> tuple:
@@ -120,7 +109,7 @@ run_kernel<{template_values}>(
                     f"{{{key_type}}}" for key_type in template.cpp_template_keys()
                 ),
             )
-            pruned_space = to_cpp_value(apply_prune_rules(template, desc, space))
+            space_pruned = to_cpp_value(apply_prune_rules(template, desc, space))
             arg_defs = (
                 ("a_ptr", parameters[RuntimeParameter.A_PTR].dtype),
                 ("b_ptr", parameters[RuntimeParameter.B_PTR].dtype),
@@ -144,6 +133,9 @@ run_kernel<{template_values}>(
                 print(
                     f"Generating and tuning template {template.name()} [{i + 1}/{len(path_and_templates)}]"
                 )
+                print(
+                    f"Pruning space [{len(space)} -> {len(space_pruned)}] for template {template.name()} with descriptor {desc}."
+                )
 
             try:
                 runtime, time = jit_tuner.compile_and_tune(
@@ -152,7 +144,7 @@ run_kernel<{template_values}>(
                         "kernel_signature": str(desc)
                         + f" ::: template: {template.name()}"
                     },
-                    space=pruned_space,
+                    space=space_pruned,
                     # space=(pruned_space[0],),
                     includes=includes,
                     template=code,

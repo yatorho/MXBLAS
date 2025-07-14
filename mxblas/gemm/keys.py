@@ -18,7 +18,7 @@ from typing import (
 
 from mxblas.project.const import DEBUG_FLAG, PRINT_CONDITIONS_FLAG, PRINT_MATCHING_FLAG
 
-from .descriptor import Layout, ScalarDType, value_dtype_to_cpp_type
+from .descriptor import Layout, ScalarDType, scalar_type_bytes, value_dtype_to_cpp_type
 
 
 class KeyTSingletonMeta(type):
@@ -329,6 +329,19 @@ class SMemSwizzleBits(Enum):
     B32 = "B32"
     B64 = "B64"
     B128 = "B128"
+
+
+swizzle_stride_bytes = {
+    SMemSwizzleBits.B32: 32,
+    SMemSwizzleBits.B64: 64,
+    SMemSwizzleBits.B128: 128,
+}
+
+
+def swizzle_stride(swizzle: SMemSwizzleBits, dtype: ScalarDType):
+    swizzle_bytes = swizzle_stride_bytes[swizzle]
+    bytes_per_element = scalar_type_bytes[dtype]
+    return swizzle_bytes // bytes_per_element
 
 
 class CTASwizzleDim(Enum):

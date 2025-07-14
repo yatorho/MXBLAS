@@ -2,24 +2,31 @@ import functools
 from abc import ABC, abstractmethod
 
 from .keys import (
+    DIVISIBLE_BY,
     EQ,
     GE,
     GT,
     K_BK,
     K_BM,
     K_BN,
+    K_K,
     K_M,
     K_N,
+    K_SK,
+    K_SM,
+    K_SN,
     LE,
     LT,
     Condition,
     IfExpr,
+    K_C_SMem_Swizzle,
     K_Cluster_M,
     K_Cluster_N,
     K_Num_SMs,
     K_Num_Stages,
     K_Num_Threads,
     K_Quant,
+    SMemSwizzleBits,
 )
 
 
@@ -46,6 +53,12 @@ def naive_gemm_smem_size(K_Num_Stages):
     express += IfExpr(EQ(K_Quant, True), K_BM * K_BN, K_BM * K_BN * 2)
 
     return express
+
+
+class BasicShapeFilter(Filter):
+
+    def __call__(self):
+        return DIVISIBLE_BY(K_M, K_SM).DIVISIBLE_BY(K_N, K_SN).DIVISIBLE_BY(K_K, K_SK)
 
 
 class SMemSizeFilter(Filter):
@@ -123,3 +136,27 @@ class BMNKTileFilter(Filter):
         cond.If(GT(mxn, K_Num_SMs * 128 * 256)).EQ(K_BM, 128).build()
 
         return cond
+
+
+def CTypeBytes():
+    return IfExpr(EQ(K_Quant, True), 1, 2)
+
+
+class CSMemSwizzleBNFilter(Filter):
+    """
+    Filter to check if the quantization and storing swizzling stride for N-dimension is valid.
+    """
+
+    def __call__(self):
+        return (
+            Condition()
+            .If(EQ(K_C_SMem_Swizzle, SMemSwizzleBits.B128))
+            .DIVISIBLE_BY(K_BN, 128 / CTypeBytes())
+            .build()
+            .If(EQ(K_C_SMem_Swizzle, SMemSwizzleBits.B64))
+            .DIVISIBLE_BY(K_BN, 64 / CTypeBytes())
+            .build()
+            .If(EQ(K_C_SMem_Swizzle, SMemSwizzleBits.B32))
+            .DIVISIBLE_BY(K_BN, 32 / CTypeBytes())
+            .build()
+        )

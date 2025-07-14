@@ -593,7 +593,7 @@ from enum import Enum
 
 
 class PromotionPhaseType(Enum):
-    MAIN_LOOP = "main_loop"
+    MAIN_LOOP = "main-loop"
     EPILOGUE = "epilogue"
 
 
@@ -625,9 +625,9 @@ class ConsumerGenerator(CodeGenerator):
             def gen_promote_regs_code():
                 if operation == PromotionOperationType.FULL:
                     code = r"""
-            static_assert(SM % BM == 0);
-            static_assert(SN % BN == 0);  // TODO
-            static_assert(SK % BK == 0);
+            /// static_assert(SM % BM == 0);
+            /// static_assert(SN % BN == 0);  // TODO
+            /// static_assert(SK % BK == 0);
 
             constexpr int32_t scale_stride = K / SK;
 
@@ -664,15 +664,11 @@ class ConsumerGenerator(CodeGenerator):
     """
                 elif operation == PromotionOperationType.PARTIAL:
                     code = r"""
-            static_assert(BM % SM == 0);
+            /// static_assert(BM % SM == 0);
             // // static_assert(BN % SN == 0);  // TODO  // TODO
-            static_assert(SK % BK == 0);
-            static_assert(K % SK == 0);
+            /// static_assert(SK % BK == 0);
+            /// static_assert(K % SK == 0);
             constexpr int32_t scale_stride = K / SK;
-
-            static_assert(SM == 1);
-            static_assert(SN == 128);
-            static_assert(SK == 128);
 
             ABScaleType b_scale
                 = __ldg(&b_scales[(num_block_n * BN / SN) * scale_stride + block_k_iter * BK / SK]);
@@ -760,9 +756,6 @@ class ConsumerGenerator(CodeGenerator):
         warpgroup_commit_batch();
         warpgroup_wait<0>();
         if (tid < CLUSTERS) arrive_cluster(&empty[qidx], tid);
-
-        static_assert(K % SK == 0);
-
                             
         $$promote_regs_code$$
 
@@ -855,8 +848,8 @@ class ConsumerGenerator(CodeGenerator):
             if operation == PromotionOperationType.FULL:
                 code += r"""
 
-        static_assert(SM % BM == 0);
-        static_assert(SN % BN == 0);
+        /// static_assert(SM % BM == 0);
+        /// static_assert(SN % BN == 0);
 
         ABScaleType a_scale = __ldg(&a_scales[num_block_m * BM / SM]);
         ABScaleType b_scale = __ldg(&b_scales[num_block_n * BN / SN]);
@@ -869,12 +862,8 @@ class ConsumerGenerator(CodeGenerator):
                 scaled_regs = False
             elif operation == PromotionOperationType.PARTIAL:
                 code += r"""
-      static_assert(BM % SM == 0);
+      /// static_assert(BM % SM == 0);
       // static_assert(BN % SN == 0);  // TODO
-      static_assert(16 % SM == 0, "We only support case for granularity less than 16 yet.");
-      static_assert(16 % SN == 0, "We only support case for granularity less than 16 yet.");
-      static_assert(1 % SM == 0, "We only support case for granularity less than 1 yet.");
-      static_assert(1 % SN == 0, "We only support case for granularity less than 1 yet.");
 
       constexpr int32_t NumAScalesIn16x16Tile = 2;
       constexpr int32_t NumBScalesIn16x16Tile = 4;

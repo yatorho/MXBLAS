@@ -1,4 +1,4 @@
-# MXBLAS
+# MXBLAS: Accelerating 8-bit Deep Learning with a Unified Micro-Scaled GEMM Library
 
 ## Overview
 
@@ -31,10 +31,11 @@ out_quant = True  # Enable quantization in the output
 QM, QN = 1, 16
 
 left = torch.randn(M, K, dtype=torch.bfloat16, device='cuda').to(torch.float8_e4m3fn)
-right = torch.randn(N, K, dtype=torch.bfloat16, device='cuda').to(torch.float8_e5m2fn)
+right = torch.randn(N, K, dtype=torch.bfloat16, device='cuda').to(torch.float8_e4m3fn)
 left_scales = torch.randn((M // SM, K // SK), dtype=torch.bfloat16, device='cuda')
 right_scales = torch.randn((N // SN, K // SK), dtype=torch.bfloat16, device='cuda')
 
+mxblas.register_all_kernels()  # Register all templates
 out_value, out_scales = mxblas.mx_gemm_kernel(
     left,
     right.T,
@@ -97,32 +98,78 @@ conda activate mxblas
 pip install torch==2.5.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 ```
 
-3. Install MXBLAS in editable mode:
+3. Clone the MXBLAS repository:
+```bash
+git clone https://github.com/yatorho/MXBLAS.git
+cd MXBLAS
+```
+
+4. Install MXBLAS in editable mode:
 ```bash
 pip install -e .
 ```
 
-4. (Optional) Run the test suite:
+5. (Optional) Run the test suite:
+
+This project provides two simple test scripts to validate functionality and performance.
+
+1. Run the JIT test
 ```bash
 python tests/test_jit.py
+```
+If everything works as expected, you should see output similar to:
+
+```bash
+Building ...
+Running ...
+Hello, MXBLAS!
+JIT test passed
+```
+
+2. Run the MX-GEMM performance/correctness test
+```bash
 python tests/test_mxgemm.py
 ```
+
+Expected output:
+```bash
+difference rate: 0.0715%
+TFLOPS: 987.2140 | Time: 1.1138 seconds
+MXBLAS test completed successfully.
+```
+
+You can also pass different flags to `test_mxgemm.py` to control the matrix dimensions and scaling pattern. For example:
+
+```bash
+python tests/test_mxgemm.py -m=8192 -n=8192 -k=8192 -sm=1 -sn=1 -sk=8192 -quant -qn=16
+```
+
+This runs a Per-Channel Scaling Pattern test with:
+
+- `-m`, `-n`, `-k`: specify the dimensions of the matrices.
+- `-sm`, `-sn`, `-sk`: specify the scaling granularities along the M, N, and K dimensions.
+- `-quant`: enables quantization in the output.
+- `-qn`: specifies the group size for quantization.
+
+Feel free to adjust these parameters to experiment with different configurations and observe their impact on performance and accuracy.
+
 
 ---
 
 ## AE Reproduction
 
 This section details the steps to reproduce the main results (Figure 9) from the MXBLAS paper:  
-**"MXBLAS: Accelerating 8-bit Deep Learning with a Unified Micro-Scaled GEMM Library."**
+**"MXBLAS: Accelerating 8-bit Deep Learning with a Unified Micro-Scaled GEMM Library"**.
 
 
 ### Pip Install Required Packages
 
 ```bash
 pip install fbgemm_gpu==1.0.0 --index-url https://download.pytorch.org/whl/cu124
-pip install triton==3.1.0
-pip install sgl_kernel==0.0.5
-pip install --no-build-isolation transformer_engine[pytorch]==1.13.0
+pip install triton==3.1.0  # Triton backend support
+pip install sgl_kernel==0.0.5  # SGL kernel support
+pip install --no-build-isolation transformer_engine[pytorch]==1.13.0  # Transformer Engine support
+pip install einops==0.8.1  # Transformer Engine dependency
 ```
 
 ### Submodule Preparation
@@ -136,15 +183,8 @@ export MXBLAS_ROOT=$(pwd)
 
 #### Clone and Checkout Submodules
 
-You will need specific versions of the following third-party repositories:
+Please clone the following third-party repositories and check out each repository to its corresponding commit hash.
 
-| Project       | Commit Hash                                |
-|---------------|--------------------------------------------|
-| **DeepGEMM**  | `a6d97a1c1b48a7a9d7994d0e155ee6f11d0a3f07` |
-| **CUTLASS**   | `e9627ce55b42fd2599f58cd4396da9380954def0` |
-| **COAT**      | `efcd56e223ef3e37eb42a10cff14183fb612e6d0` |
-
-Check out each repository to the corresponding commit hash.
 ```bash
 git submodule update --init --recursive
 
@@ -165,8 +205,6 @@ git checkout efcd56e223ef3e37eb42a10cff14183fb612e6d0
 1. DeepGEMM
 ```bash
 cd $MXBLAS_ROOT/third_party/DeepGEMM
-git submodule init
-git submodule update
 python setup.py develop
 ```
 
@@ -184,13 +222,29 @@ pip install -e .
 
 ### Run Evaluation
 
-Run all benchmarks:
+You can run all benchmarks by executing the following commands:
+
 ```bash
 cd $MXBLAS_ROOT/bench
 python bench_all.py
 ```
 
-Benchmark results will be saved in `bench/bench_all.csv`.
+The script also supports customizing the benchmark configuration via optional arguments. For example:
+
+```bash
+python bench_all.py --models=llama-3-70B,opt-66B --Ms=2048,4096,8192 --scaling_pattern=TT,BB
+```
+
+where the arguments mean:
+
+- `--models`: a comma-separated list of model names to benchmark, e.g. `llama-3-70B,opt-66B`.
+- `--Ms`: a comma-separated list of M dimensions to benchmark, e.g. `1024,2048,4096,8192`.
+- `--scaling_pattern`: a comma-separated list of scaling patterns in the format `TT`, `BB`, `GB`, `CC`.
+
+If no arguments are specified, the default configuration used in Figure 9 of the paper will be applied.
+
+
+Benchmark results will be appended to the file `bench/bench_all.csv`.
 
 ⚠️ Note: The benchmarking process can take **several hours**, depending on your hardware configuration. Please be patient.
 

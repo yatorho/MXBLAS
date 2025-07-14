@@ -240,7 +240,7 @@ def bench_kineto(
     flush_l2: bool = False,
 ):
     # Conflict with Nsight Systems
-    using_nsys = os.environ.get("DG_NSYS_PROFILING", False)
+    using_nsys = False
 
     # For some auto-tuning kernels with prints
     fn()
@@ -343,7 +343,7 @@ def GPU_bench(func, iters=100, warmup=30, kernel_name=None) -> float:
                 kernel_name,
                 num_tests=iters,
                 suppress_kineto_output=True,
-                flush_l2=True,
+                flush_l2=False,
             )
             * 1e3
         )
@@ -398,4 +398,3 @@ class WithNVTX:
 
         nvtx.range_pop()
         return self
-

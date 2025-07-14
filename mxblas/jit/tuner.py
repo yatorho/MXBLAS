@@ -44,7 +44,8 @@ def parallel_build(name, arg_defs, code, tuned_keys):
     except Exception as e:
         import traceback
 
-        traceback.print_exc()
+        # traceback.print_exc()
+
         runtime = None
     return runtime, tuned_keys
 

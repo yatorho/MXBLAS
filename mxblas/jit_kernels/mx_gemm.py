@@ -205,7 +205,6 @@ def build_tunning_space():
     K_BM_list = [64, 128]
     K_BK_list = [128]
     K_Num_Stages_list = [3, 4, 5, 6, 7, 8, 9, 10]
-    # K_Num_Stages_list = [3]
     K_Num_Threads_list = [256, 384]
     K_SMs_list = [108, 114]
     K_Cluster_M_list = [1, 2]
@@ -220,8 +219,11 @@ def build_tunning_space():
     bn_store_swizzle_list = [
         (256, SMemSwizzleBits.B128),
         (224, SMemSwizzleBits.B64),
+        (224, SMemSwizzleBits.B32),  # for quantization output
         (192, SMemSwizzleBits.B128),
+        (192, SMemSwizzleBits.B64),  # for quantization output
         (160, SMemSwizzleBits.B64),
+        (160, SMemSwizzleBits.B32),  # for quantization output
         (128, SMemSwizzleBits.B128),
         (112, SMemSwizzleBits.DISABLE),
         (96, SMemSwizzleBits.DISABLE),

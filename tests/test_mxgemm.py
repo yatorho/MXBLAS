@@ -6,24 +6,7 @@ import mxblas
 import mxblas.utils as utils
 
 
-def check_is_ef(m, n, k, sm, sn, sk):
-    bm_max = 128
-    bn_max = 256
-
-    is_ef = True
-    is_ef &= k == sk
-    is_ef &= sm >= bm_max and sm % bm_max == 0
-    is_ef &= sn >= bn_max and sn % bn_max == 0
-
-    return is_ef
-
-
 def run(M, N, K, SM, SN, SK, quant=False, QN=16, repeats=8, warmup=8):
-    if not check_is_ef(M, N, K, SM, SN, SK):
-        raise ValueError(
-            f"Invalid EF configuration: M={M}, N={N}, K={K}, SM={SM}, SN={SN}, SK={SK}"
-        )
-
     a_bf16 = utils.gaussian_with_channel_outlier(
         (M, K), dim=0, outlier_ratio=0.003, o_std=10
     )
@@ -52,23 +35,23 @@ def run(M, N, K, SM, SN, SK, quant=False, QN=16, repeats=8, warmup=8):
 
     print(f"difference rate: {utils.calc_diff(out_bf16, ref_out) * 100.:.4f}%")
 
-    time = utils.GPU_bench(kernel, iters=repeats, warmup=warmup)
-    tflops = 2 * M * N * K / (time * 1e9)
-    print(f"TFLOPS: {tflops:.4f} | Time: {time:.4f} seconds")
+    time_ms = utils.GPU_bench(kernel, iters=repeats, warmup=warmup)
+    tflops = 2 * M * N * K / (time_ms * 1e9)
+    print(f"TFLOPS: {tflops:.4f} | Time: {time_ms:.4f} ms")
 
 
 if __name__ == "__main__":
     mxblas.register_all_kernels()
 
     parser = argparse.ArgumentParser(description="Run MXBLAS EF test")
-    parser.add_argument("--M", type=int, default=8192, help="Matrix M dimension")
-    parser.add_argument("--N", type=int, default=8192, help="Matrix N dimension")
-    parser.add_argument("--K", type=int, default=8192, help="Matrix K dimension")
-    parser.add_argument("--SM", type=int, default=8192, help="SM dimension")
-    parser.add_argument("--SN", type=int, default=8192, help="SN dimension")
-    parser.add_argument("--SK", type=int, default=8192, help="SK dimension")
-    parser.add_argument("--quant", action="store_true", help="Enable quantization")
-    parser.add_argument("--QN", type=int, default=16, help="Quantization size")
+    parser.add_argument("-m", type=int, default=8192, help="Matrix M dimension")
+    parser.add_argument("-n", type=int, default=8192, help="Matrix N dimension")
+    parser.add_argument("-k", type=int, default=8192, help="Matrix K dimension")
+    parser.add_argument("-sm", type=int, default=8192, help="SM dimension")
+    parser.add_argument("-sn", type=int, default=8192, help="SN dimension")
+    parser.add_argument("-sk", type=int, default=8192, help="SK dimension")
+    parser.add_argument("-quant", action="store_true", help="Enable quantization")
+    parser.add_argument("-qn", type=int, default=16, help="Quantization size")
     parser.add_argument(
         "--repeats", type=int, default=8, help="Number of repeats for benchmarking"
     )
@@ -81,14 +64,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     run(
-        M=args.M,
-        N=args.N,
-        K=args.K,
-        SM=args.SM,
-        SN=args.SN,
-        SK=args.SK,
+        M=args.m,
+        N=args.n,
+        K=args.k,
+        SM=args.sm,
+        SN=args.sn,
+        SK=args.sk,
         quant=args.quant,
-        QN=args.QN,
+        QN=args.qn,
         repeats=args.repeats,
         warmup=args.warmup,
     )
