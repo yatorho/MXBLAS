@@ -64,6 +64,7 @@ Users can control the library’s debugging and profiling behavior via environme
 | `MXBLAS_PRINT_MATCHING`       | Prints details about multi-template matching during JIT compilation.                       |
 
 You can set these environment variables when running your script:
+
 ```bash
 MXBLAS_JIT_DEBUG=1 python your_script.py
 MXBLAS_PRINT_AUTO_TUNE=1 python your_script.py
@@ -88,23 +89,27 @@ MXBLAS_PRINT_AUTO_TUNE=1 python your_script.py
 ### Setting Up the Environment
 
 1. Create a Python environment:
+
 ```bash
 conda create -n mxblas python=3.12
 conda activate mxblas
 ```
 
 2. Install dependencies:
+
 ```bash
 pip install torch==2.5.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 ```
 
 3. Clone the MXBLAS repository:
+
 ```bash
 git clone https://github.com/yatorho/MXBLAS.git
 cd MXBLAS
 ```
 
 4. Install MXBLAS in editable mode:
+
 ```bash
 pip install -e .
 ```
@@ -114,9 +119,11 @@ pip install -e .
 This project provides two simple test scripts to validate functionality and performance.
 
 i. Run the JIT test
+
 ```bash
 python tests/test_jit.py
 ```
+
 If everything works as expected, you should see output similar to:
 
 ```bash
@@ -127,11 +134,13 @@ JIT test passed
 ```
 
 ii. Run the MX-GEMM performance/correctness test
+
 ```bash
 python tests/test_mxgemm.py
 ```
 
 Expected output:
+
 ```bash
 difference rate: 0.0715%
 TFLOPS: 987.2140 | Time: 1.1138 seconds
@@ -177,6 +186,7 @@ pip install einops==0.8.1  # Transformer Engine dependency
 #### Set Environment Variables
 
 Export the MXBLAS root directory:
+
 ```bash
 export MXBLAS_ROOT=$(pwd)
 ```
@@ -198,23 +208,24 @@ cd $MXBLAS_ROOT/third_party/coat
 git checkout efcd56e223ef3e37eb42a10cff14183fb612e6d0
 ```
 
-
-
 #### Build Third-Party Dependencies
 
 1. DeepGEMM
+
 ```bash
 cd $MXBLAS_ROOT/third_party/DeepGEMM
 python setup.py develop
 ```
 
 2. CUTLASS
+
 ```bash
 cd $MXBLAS_ROOT/bench
 ./make_cutlass.sh
 ```
 
 3. COAT
+
 ```bash
 cd $MXBLAS_ROOT/third_party/coat
 pip install -e .
@@ -261,4 +272,3 @@ This project is licensed under the terms of the [MIT License](LICENSE).
 For questions, bug reports, or contributions, please open an issue or contact the [authors](weihuwang@whu.edu.cn).
 
 ---
-
