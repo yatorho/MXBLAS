@@ -250,7 +250,7 @@ git submodule update --init --recursive
 cd $MXBLAS_ROOT/third_party/DeepGEMM
 git checkout a6d97a1c1b48a7a9d7994d0e155ee6f11d0a3f07
 
-cd $MXBLAS_ROOT/bench/cutlass
+cd $MXBLAS_ROOT/third_party/cutlass
 git checkout e9627ce55b42fd2599f58cd4396da9380954def0
 
 cd $MXBLAS_ROOT/third_party/coat
