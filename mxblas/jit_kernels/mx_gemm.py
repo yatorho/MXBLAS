@@ -355,22 +355,30 @@ def mx_gemm_kernel(
     out_scale_transpose: bool = False,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
-    Perform matrix multiplication with quantization support.
+    Perform MX-GEMM operation with quantization support.
 
     Args:
-        left (torch.Tensor): Left operand of the matrix multiplication.
-        right (torch.Tensor): Right operand of the matrix multiplication.
-        left_scale (torch.Tensor): Scale for the left operand.
-        right_scale (torch.Tensor): Scale for the right operand.
+        left (torch.Tensor): FP8 left operand of the matrix multiplication.
+        right (torch.Tensor): FP8 right operand of the matrix multiplication.
+        left_scale (torch.Tensor): 16/32-bits scales for the left operand.
+        right_scale (torch.Tensor): 16/32-bits scales for the right operand.
         output_quant (bool): Whether to quantize the output.
-        quant_size (int): Size of the quantization.
-        out_dtype (Optional[torch.dtype]): Desired output data type. If `output_quant` is True, defaults to left's dtype;
-            otherwise, defaults to `torch.bf16`.
+        quant_size (Optional[torch.Size]): Size of the quantization.
+        out_dtype (Optional[torch.dtype]): Desired output tensor data type.
+            If `output_quant` is True, defaults to left's dtype;
+            otherwise, defaults to `torch.bfloat16`.
         out_transpose (bool): Whether to transpose the output tensor.
         out_scale_transpose (bool): Whether to transpose the output scale tensor.
 
     Returns:
-        Tuple[torch.Tensor, torch.Tensor]: Resulting tensor and scale tensor.
+        Tuple[torch.Tensor, torch.Tensor]: Resulting output tensor and corresponding
+            scale tensor. If `output_quant` is False, the scale tensor will be empty.
+            The scale tensor data type will be the same as the left/right scale tensor data type.
+
+    NOTE:
+        - We only support group-wise quantization for the output tensor now,
+            so the first quant_size must obey the format: `torch.Size([1, QN])`,
+            where `QN` is the number of elements in each quantization group.
 
     """
 
