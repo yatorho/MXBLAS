@@ -89,8 +89,6 @@ def mx_gemm_kernel(
     - `output`: The result tensor. 
     - `output_scale`: Corresponding scale tensor. If `output_quant=False`, the scale tensor is empty.
 
---- 
-
 You can adjust quantization patterns, scaling strategies, and output data types according to your application needs, making `mx_gemm_kernel` a powerful drop-in solution for high-performance, quantization-aware GEMM on GPUs.
 
 ---
