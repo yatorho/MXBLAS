@@ -23,14 +23,14 @@ The MX-Format supports diverse scaling patterns and granularities, and MXBLAS ef
 
 The `mxblas.mx_gemm_kernel` function from MXBLAS provides a unified and flexible API for performing MX-GEMM operations on tensors in MX-Formats, supporting various scaling patterns and output quantization options.
 
-Below is a basic usage example for **Per-Tensor x Per-Tensor (TT) scaled input** and **16-sized group quantization output**:
+Below is a basic usage example for **Per-Tensor x Per-Tensor (TT) scaling pattern input** and **16-sized group quantization output**:
 
 ```python
 import torch
 import mxblas
 
 M, N, K = 8192, 8192, 8192
-SM, SN, SK = 8192, 8192, 8192  # Per-Tensor Scaling Pattern
+SM, SN, SK = 8192, 8192, 8192  # TT Scaling Pattern
 out_quant = True  # Enable quantization in the output
 QM, QN = 1, 16  # Group-wise quantization: 1 row, 16 columns per group
 
@@ -200,7 +200,7 @@ You can also pass different flags to `test_mxgemm.py` to control the matrix dime
 python tests/test_mxgemm.py -m=8192 -n=8192 -k=8192 -sm=1 -sn=1 -sk=8192 -quant -qn=16
 ```
 
-This runs a Per-Channel Scaling Pattern test with:
+This runs a **Per-Channel x Per-Channel (CC)** scaling pattern test with:
 
 - `-m`, `-n`, `-k`: specify the dimensions of the matrices.
 - `-sm`, `-sn`, `-sk`: specify the scaling granularities along the M, N, and K dimensions.
