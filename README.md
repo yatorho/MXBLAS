@@ -23,7 +23,7 @@ The MX-Format supports diverse scaling patterns and granularities, and MXBLAS ef
 
 The `mxblas.mx_gemm_kernel` function from MXBLAS provides a unified and flexible API for performing MX-GEMM operations on tensors in MX-Formats, supporting various scaling patterns and output quantization options.
 
-Below is a basic usage example for **Per-Tensor x Per-Tensor (TT) scaling pattern input** and **16-sized group quantization output**:
+Below is a basic usage example for **Per-Tensor x Per-Tensor (TT) scaled input** and **16-sized group quantization output**:
 
 ```python
 import torch
