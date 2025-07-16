@@ -117,7 +117,7 @@ def baseline_worker(
         traceback.print_exc()
 
     print(
-        f"        {method}: diff_rate: {diff_rate:.4f}%, time: {time:.4f}ms, TFLOPS: {tflops:.2f}, Bandwidth: {bandwidth:.2f}GB/s"
+        f"        {method}: time: {time:.4f}ms, TFLOPS: {tflops:.2f}, Bandwidth: {bandwidth:.2f}GB/s"
     )
     with open(output_file, "a") as f:
         f.write(f"{prefix}{method},{time:.4f},{tflops:.2f},{bandwidth:.2f}\n")
@@ -163,7 +163,7 @@ def mx_worker(
         traceback.print_exc()
 
     print(
-        f"        MXBLAS: diff_rate: {diff_rate:.4f}%, time: {time:.4f}ms, TFLOPS: {tflops:.2f}, Bandwidth: {bandwidth:.2f}GB/s"
+        f"        MXBLAS: time: {time:.4f}ms, TFLOPS: {tflops:.2f}, Bandwidth: {bandwidth:.2f}GB/s"
     )
     with open(output_file, "a") as f:
         f.write(f"{prefix}MXBLAS,{time:.4f},{tflops:.2f},{bandwidth:.2f}\n")
@@ -220,7 +220,7 @@ def main(models, Ms, scaling_patterns, quant_output, quant_size, output_file):
                         bandwidth,
                     ) = (math.nan, math.nan, math.nan, math.nan)
                     print(
-                        f"        MXBLAS(ERROR): diff_rate: {diff_rate:.4f}%, time: {time:.4f}ms, TFLOPS: {tflops:.2f}, Bandwidth: {bandwidth:.2f}GB/s"
+                        f"        MXBLAS(ERROR): time: {time:.4f}ms, TFLOPS: {tflops:.2f}, Bandwidth: {bandwidth:.2f}GB/s"
                     )
                     with open(output_file, "a") as f:
                         f.write(
@@ -257,7 +257,7 @@ def main(models, Ms, scaling_patterns, quant_output, quant_size, output_file):
                             bandwidth,
                         ) = (math.nan, math.nan, math.nan, math.nan)
                         print(
-                            f"        {method}(ERROR): diff_rate: {diff_rate:.4f}%, time: {time:.4f}ms, TFLOPS: {tflops:.2f}, Bandwidth: {bandwidth:.2f}GB/s"
+                            f"        {method}(ERROR): time: {time:.4f}ms, TFLOPS: {tflops:.2f}, Bandwidth: {bandwidth:.2f}GB/s"
                         )
                         with open(output_file, "a") as f:
                             f.write(

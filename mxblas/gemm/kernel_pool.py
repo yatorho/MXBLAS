@@ -145,7 +145,7 @@ run_kernel<{template_values}>(
                         + f" ::: template: {template.name()}"
                     },
                     space=space_pruned,
-                    # space=(pruned_space[0],),
+                    # space=(space_pruned[0],),
                     includes=includes,
                     template=code,
                     arg_defs=arg_defs,
