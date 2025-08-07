@@ -226,6 +226,8 @@ pip install triton==3.1.0  # Triton backend support
 pip install sgl_kernel==0.0.5  # SGL kernel support
 pip install --no-build-isolation transformer_engine[pytorch]==1.13.0  # Transformer Engine support
 pip install einops==0.8.1  # Transformer Engine dependency
+pip install pandas
+pip install seaborn
 ```
 
 ---
@@ -307,6 +309,17 @@ If no arguments are specified, the default configuration used in Figure 9 of the
 Benchmark results will be appended to the file `bench/bench_all.csv`.
 
 Note: The benchmarking process can take **several hours**, depending on your hardware configuration. Please be patient.
+
+
+### 📊 Plotting Results
+
+To visualize the benchmark results, you can use the provided plotting script:
+
+```bash
+python plot_box.py
+```
+
+This script reads the benchmark results from `bench/bench_all.csv` and generates a box plot `figure9_boxplot.jpg` comparing the performance of different scaling patterns across various models and M dimensions.
 
 ---
 
