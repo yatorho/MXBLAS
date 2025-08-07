@@ -320,7 +320,7 @@ cd $MXBLAS_ROOT/bench
 python plot_box.py
 ```
 
-This script reads the benchmark results from `bench/bench_all.csv` and generates a box plot `bench/figure9_boxplot.jpg` comparing the performance of different scaling patterns across various models and M dimensions.
+This script reads the benchmark results from `bench/bench_all.csv` and generates a box plot `bench/figure9_boxplot.jpg` comparing the performance of different scaling patterns across various methods.
 
 ---
 
