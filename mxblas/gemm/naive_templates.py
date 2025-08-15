@@ -7,7 +7,7 @@ import itertools
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Type, override
 
-from mxblas.gemm.filter import (
+from mxblas.gemm.filters import (
     BasicShapeFilter,
     BMNKTileFilter,
     BMNKTileFilterV2,
@@ -187,7 +187,8 @@ def create_template_class(
         SMemSizeFilter(),
         NumConsumerX64EqualBMFilter(),
         ClusterFilter(),
-        BMNKTileFilterV2(),
+        BMNKTileFilter(),
+        # BMNKTileFilterV2(),
         CSMemSwizzleBNFilter(),
     ]
 

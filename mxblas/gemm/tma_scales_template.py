@@ -8,7 +8,7 @@ from mxblas.gemm.descriptor import (
     columnable_layouts,
     rowable_layouts,
 )
-from mxblas.gemm.filter import (
+from mxblas.gemm.filters import (
     BasicShapeFilter,
     BMNKTileFilter,
     ClusterFilter,

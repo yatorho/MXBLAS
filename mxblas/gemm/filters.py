@@ -138,7 +138,7 @@ class BMNKTileFilter(Filter):
         return cond
 
 
-class BMNKTileFilterV2(Filter):
+class BMNKTileFilterV2(Filter):  # TODO: bug in 8192x8192x8192 case
 
     def __call__(self):
         cond = Condition()

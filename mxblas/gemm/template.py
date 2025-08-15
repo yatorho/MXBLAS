@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Iterable
 
-from mxblas.gemm.filter import Filter
+from mxblas.gemm.filters import Filter
 from mxblas.gemm.keys import (
     EQ,
     K_K,
