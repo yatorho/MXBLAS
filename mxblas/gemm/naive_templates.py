@@ -10,6 +10,7 @@ from typing import Any, Dict, Type, override
 from mxblas.gemm.filter import (
     BasicShapeFilter,
     BMNKTileFilter,
+    BMNKTileFilterV2,
     ClusterFilter,
     CSMemSwizzleBNFilter,
     Filter,
@@ -26,11 +27,12 @@ from mxblas.gemm.generator import (
     ProducerGenerator,
     PromotionOperationType,
     PromotionPhaseType,
+    SharedMemoryStructGenerator,
     TemplateType,
 )
 from mxblas.gemm.template_manager import register_template
 
-from .descriptor import Layout, ScalarDType
+from .descriptor import Layout, ScalarDType, columnable_layouts, rowable_layouts
 from .keys import (
     EQ,
     GE,
@@ -45,11 +47,17 @@ from .keys import (
     K_SN,
     LE,
     LT,
+    NE,
     Condition,
+    K_A_Layout,
     K_AB_Scale_Type,
+    K_AS_Layout,
+    K_B_Layout,
+    K_BS_Layout,
     K_C_Layout,
     K_C_Scale_Type,
     K_C_Type,
+    K_CS_Layout,
     K_Quant,
     get_all_keys,
 )
@@ -64,12 +72,14 @@ class NaiveTemplate(KernelTemplate, ABC):
 
         signature_gen = BaseSignatureGenerator()
         predefined_gen = PredefinedCodeGenerator()
+        shared_memory_gen = SharedMemoryStructGenerator()
         include_gen = IncludeGenerator()
         producer_gen = ProducerGenerator()
         host_launch_gen = HostLauncherGenerator(self.cpp_template_keys())
 
         self.include_generator = include_gen
         self.predefined_generator = predefined_gen
+        self.shared_memory_generator = shared_memory_gen
         self.signature_generator = signature_gen
         self.producer_generator = producer_gen
         self.host_launcher_generator = host_launch_gen
@@ -88,6 +98,7 @@ class NaiveTemplate(KernelTemplate, ABC):
         generator = NaiveGenerator(
             include_generator=self.include_generator,
             predefined_generator=self.predefined_generator,
+            shared_memory_generator=self.shared_memory_generator,
             signature_generator=self.signature_generator,
             producer_generator=self.producer_generator,
             consumer_generator=self.consumer_generator,
@@ -101,7 +112,7 @@ class FTypeFilter(Filter):
 
     def __call__(self):
         # return EQ(K_SN % K_BN, 0).EQ(K_SM % K_BM, 0).EQ(K_SK % K_BK, 0)
-        return GE(K_SN, K_BN).GE(K_SM, K_BM).GE(K_SK, K_BK)
+        return GE(K_SN, K_BN).GE(K_SM, K_BM).DIVISIBLE_BY(K_SK, K_BK)
 
 
 class MTypeFilter(Filter):
@@ -113,7 +124,7 @@ class MTypeFilter(Filter):
 class PTypeFilter(Filter):
 
     def __call__(self):
-        return LE(K_SN, K_BN).LE(K_SM, K_BM).GE(K_SK, K_BK)
+        return LE(K_SN, K_BN).LE(K_SM, K_BM).DIVISIBLE_BY(K_SK, K_BK)
 
 
 class ETypeFilter(Filter):
@@ -145,14 +156,19 @@ def create_template_class(
     def name(self):
         return f"{phase.value} & {operation.value} & {'High-Precision' if not quant else 'Quantization'} C & {layout.value} C"
 
-    condition = Condition().EQ(K_AB_Scale_Type, K_C_Scale_Type)
+    ### Matching layouts
+    condition = (
+        Condition()
+        .IN(K_AS_Layout, rowable_layouts)
+        .IN(K_BS_Layout, columnable_layouts)
+        .EQ(K_CS_Layout, K_C_Layout)
+    )
 
     if phase == PromotionPhaseType.MAIN_LOOP:
-        condition = condition.DIVISIBLE_BY(K_K, K_SK).GT(K_K, K_SK)
+        condition = condition.GT(K_K, K_SK)
     else:
         condition = condition.EQ(K_K, K_SK)
 
-    condition = condition.DIVISIBLE_BY(K_M, K_SM).DIVISIBLE_BY(K_N, K_SN)
     if operation == PromotionOperationType.PARTIAL:
         condition = condition.GT(K_M, K_SM).GT(K_N, K_SN)
     else:
@@ -171,7 +187,7 @@ def create_template_class(
         SMemSizeFilter(),
         NumConsumerX64EqualBMFilter(),
         ClusterFilter(),
-        BMNKTileFilter(),
+        BMNKTileFilterV2(),
         CSMemSwizzleBNFilter(),
     ]
 

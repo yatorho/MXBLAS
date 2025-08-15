@@ -138,6 +138,43 @@ class BMNKTileFilter(Filter):
         return cond
 
 
+class BMNKTileFilterV2(Filter):
+
+    def __call__(self):
+        cond = Condition()
+
+        REDUCE_RATE_FOR_MAIN_LOOP_CASE = 0.5
+
+        MAX_ITERS_PER_SMs = [4, 6, 8]
+        MIN_ITERS_PER_SMs = [0.6, 0.5, 0.4]
+
+        BN_UPPER_LIMITs = [
+            IfExpr(EQ(K_K, K_SK), bn, bn * REDUCE_RATE_FOR_MAIN_LOOP_CASE)
+            for bn in [160, 192, 256]
+        ]
+        BN_LOWER_LIMITs = [128, 96, 80]
+
+        MxN = K_M * K_N
+
+        for MAX_ITERS_PER_SM, BN_UPPER_LIMIT in zip(MAX_ITERS_PER_SMs, BN_UPPER_LIMITs):
+            cond = (
+                cond.If(GE(MxN, K_Num_SMs * K_BM * K_BN * MAX_ITERS_PER_SM))
+                .GT(K_BN, BN_UPPER_LIMIT)
+                .GE(K_BM, 128)
+                .build()
+            )
+
+        for MIN_ITERS_PER_SM, BN_LOWER_LIMIT in zip(MIN_ITERS_PER_SMs, BN_LOWER_LIMITs):
+            cond = (
+                cond.If(LE(MxN, K_Num_SMs * K_BM * K_BN * MIN_ITERS_PER_SM))
+                .LE(K_BN, BN_LOWER_LIMIT)
+                .LE(K_BM, 64)
+                .build()
+            )
+
+        return cond
+
+
 def CTypeBytes():
     return IfExpr(EQ(K_Quant, True), 1, 2)
 

@@ -3,11 +3,22 @@ from typing import Iterable
 
 from mxblas.gemm.filter import Filter
 from mxblas.gemm.keys import (
+    EQ,
+    K_K,
+    K_M,
+    K_N,
+    K_SK,
+    K_SM,
+    K_SN,
     Condition,
     K_A_Layout,
+    K_AB_Scale_Type,
     K_AB_Type,
     K_B_Layout,
     K_C_Layout,
+    K_C_Scale_Type,
+    K_C_Type,
+    K_Quant,
     Key_T,
 )
 
@@ -62,4 +73,13 @@ common_conditions = (
     .EQ(K_B_Layout, Layout.COLUMN_MAJOR)
     .EQ(K_C_Layout, Layout.ROW_MAJOR)
     .IN(K_AB_Type, [ScalarDType.FP8_E4M3, ScalarDType.FP8_E5M2])
+    .DIVISIBLE_BY(K_M, K_SM)
+    .DIVISIBLE_BY(K_N, K_SN)
+    .DIVISIBLE_BY(K_K, K_SK)
+    .EQ(K_AB_Scale_Type, K_C_Scale_Type)
+    .If(EQ(K_Quant, True))
+    .IN(K_C_Type, [ScalarDType.FP8_E5M2, ScalarDType.FP8_E4M3])
+    .Else()
+    .IN(K_C_Type, [ScalarDType.FP16, ScalarDType.BF16])
+    .build()
 )

@@ -9,7 +9,7 @@ from typing import Tuple, cast
 
 from torch.utils.cpp_extension import CUDA_HOME
 
-from mxblas.project.const import BUILD_FAILURE_INFO_PATH
+from mxblas.project.const import BUILD_FAILURE_INFO_PATH, BUILD_WARNING_INFO_PATH
 
 from ..project import (
     CACHE_DIR_FLAG,
@@ -195,6 +195,7 @@ def build(name: str, arg_defs: tuple, code: str) -> Runtime:
 
 
     failure_info_path = os.getenv(BUILD_FAILURE_INFO_PATH)
+    warning_info_path = os.getenv(BUILD_WARNING_INFO_PATH)
 
  
     result = subprocess.run(
@@ -204,24 +205,32 @@ def build(name: str, arg_defs: tuple, code: str) -> Runtime:
         text=True
     )
 
-    if result.returncode != 0:
-        if failure_info_path:
-            error_block = []
-            error_block.append(f"\n===== JIT Compile Failure =====\n")
-            error_block.append(f"Command: {' '.join(command)}\n")
-            error_block.append(f"Return code: {result.returncode}\n\n")
-            error_block.append("==== STDOUT ====\n")
-            error_block.append(result.stdout)
-            error_block.append("\n==== STDERR ====\n")
-            error_block.append(result.stderr)
-            error_block.append(f"\n===== End of Failure =====\n")
+    if failure_info_path or warning_info_path:
+        info_block = []
+        info_block.append(f"\n===== JIT Compile Info =====\n")
+        info_block.append(f"Command: {' '.join(command)}\n")
+        info_block.append(f"Return code: {result.returncode}\n\n")
+        info_block.append("==== STDOUT ====\n")
+        info_block.append(result.stdout)
+        info_block.append("\n==== STDERR ====\n")
+        info_block.append(result.stderr)
+        info_block.append(f"\n===== End of Info =====\n")
 
-            error_text = ''.join(error_block)
+        info_text = ''.join(info_block)
 
+        if failure_info_path and result.returncode != 0:
             try:
-                write_atomic_append(failure_info_path, error_text)
+                write_atomic_append(failure_info_path, info_text)
             except Exception as file_err:
                 print(f"Failed to write error to {failure_info_path}: {file_err}")
+            
+        if warning_info_path:
+            try:
+                write_atomic_append(warning_info_path, info_text)
+            except Exception as file_err:
+                print(f"Failed to write warning to {warning_info_path}: {file_err}")
+
+    if result.returncode != 0:
         raise RuntimeError(
             f"Failed to compile {src_path} with exit code {result.returncode}"
         )

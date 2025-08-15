@@ -23,6 +23,10 @@ scalar_type_bytes = {
 class Layout(Enum):
     ROW_MAJOR = "ROW_MAJOR"
     COLUMN_MAJOR = "COLUMN_MAJOR"
+    DUAL_MAJOR = "DUAL_MAJOR"  # when shape[-1] == 1, both row and column major are equivalent
+
+rowable_layouts = [Layout.ROW_MAJOR, Layout.DUAL_MAJOR]
+columnable_layouts = [Layout.COLUMN_MAJOR, Layout.DUAL_MAJOR]
 
 
 

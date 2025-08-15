@@ -1,5 +1,5 @@
 import re
-from typing import Iterable, List
+from typing import Collection, Iterable, List
 
 from .descriptor import Layout, global_keys, value_dtype_to_cpp_type
 from .keys import (
@@ -432,29 +432,6 @@ HOST CUtensorMap create_mx_gemm_tensor_map(const T *ptr) {
 }
 
 
-template <int32_t BM,
-          int32_t BN,
-          int32_t BK,
-          int32_t QSIZE,
-          typename AType,
-          typename BType,
-          typename CType>
-struct SMem {
-  /// GEMM need
-  alignas(1024) AType A[BM * BK * QSIZE];
-  alignas(1024) BType B[BK * BN * QSIZE];
-  alignas(1024) CType C[BN * BM];
-  alignas(16) alignas(8) uint64_t full[QSIZE], empty[QSIZE];
-  /// *********
-
-  static constexpr size_t A_SMEM_SIZE = BM * BK * sizeof(AType);
-  static constexpr size_t B_SMEM_SIZE = BK * BN * sizeof(BType);
-  static constexpr size_t C_SMEM_SIZE = BM * BN * sizeof(CType);
-  static_assert(A_SMEM_SIZE % 1024 == 0);
-  static_assert(B_SMEM_SIZE % 1024 == 0);
-  static_assert(C_SMEM_SIZE % 1024 == 0);
-};
-
 template <int32_t NUM_SM, int32_t M, int32_t N, int32_t BM, int32_t BN, int32_t GROUP_N_SIZE>
 struct Scheduler {
   int32_t current_iter = -1;
@@ -505,6 +482,35 @@ auto DEVICE create_scheduler(int32_t rank) {
   }
 }
 
+"""
+
+
+class SharedMemoryStructGenerator(CodeGenerator):
+    
+    def generate(self) -> str:
+        return r"""
+template <int32_t BM,
+          int32_t BN,
+          int32_t BK,
+          int32_t QSIZE,
+          typename AType,
+          typename BType,
+          typename CType>
+struct SMem {
+  /// GEMM need
+  alignas(1024) AType A[BM * BK * QSIZE];
+  alignas(1024) BType B[BK * BN * QSIZE];
+  alignas(1024) CType C[BN * BM];
+  alignas(16) alignas(8) uint64_t full[QSIZE], empty[QSIZE];
+  /// *********
+
+  static constexpr size_t A_SMEM_SIZE = BM * BK * sizeof(AType);
+  static constexpr size_t B_SMEM_SIZE = BK * BN * sizeof(BType);
+  static constexpr size_t C_SMEM_SIZE = BM * BN * sizeof(CType);
+  static_assert(A_SMEM_SIZE % 1024 == 0);
+  static_assert(B_SMEM_SIZE % 1024 == 0);
+  static_assert(C_SMEM_SIZE % 1024 == 0);
+};
 """
 
 
@@ -670,32 +676,40 @@ class ConsumerGenerator(CodeGenerator):
             /// static_assert(K % SK == 0);
             constexpr int32_t scale_stride = K / SK;
 
-            ABScaleType b_scale
-                = __ldg(&b_scales[(num_block_n * BN / SN) * scale_stride + block_k_iter * BK / SK]);
+            constexpr int32_t NumAScalesIn16x16Tile = 2;
+            constexpr int32_t NumBScalesIn16x16Tile = 4;
 
     #pragma unroll
             for (int m_it = 0; m_it < B_WG_M / WGMMA_M; m_it++) {
             int32_t s_row_0
-                = num_block_m * BM / SM + wg_idx * B_WG_M + m_it * WGMMA_M + warp * 16 + lane / 4;
+                = num_block_m * BM + wg_idx * B_WG_M + m_it * WGMMA_M + warp * 16 + lane / 4;
             int32_t s_row_1 = s_row_0 + 8;
-            ABScaleType a_scale_0 = __ldg(&a_scales[s_row_0 * scale_stride + block_k_iter * BK / SK]);
-            ABScaleType a_scale_1 = __ldg(&a_scales[s_row_1 * scale_stride + block_k_iter * BK / SK]);
 
-            float ab_scale_0 = a_scale_0 * b_scale;
-            float ab_scale_1 = a_scale_1 * b_scale;
+            ABScaleType a_scale_regs[NumAScalesIn16x16Tile];
+
+            a_scale_regs[0] = __ldg(&a_scales[s_row_0 / SM * scale_stride + block_k_iter * BK / SK]);
+            a_scale_regs[1] = __ldg(&a_scales[s_row_1 / SM * scale_stride + block_k_iter * BK / SK]);
 
     #pragma unroll
             for (int w = 0; w < WGMMA_N; w += 16) {
+                int32_t s_col = num_block_n * BN + w + 2 * (lane % 4);
+                ABScaleType b_scale_regs[NumBScalesIn16x16Tile];
+
+                b_scale_regs[0] = __ldg(&b_scales[(s_col + 0) / SN * scale_stride + block_k_iter * BK / SK]);
+                b_scale_regs[1] = __ldg(&b_scales[(s_col + 1) / SN * scale_stride + block_k_iter * BK / SK]);
+                b_scale_regs[2] = __ldg(&b_scales[(s_col + 8) / SN * scale_stride + block_k_iter * BK / SK]);
+                b_scale_regs[3] = __ldg(&b_scales[(s_col + 9) / SN * scale_stride + block_k_iter * BK / SK]);
+
     #define D(i) d[m_it][w / 16][i]
     #define ACC(i) acc[m_it][w / 16][i]
-                D(0) += ACC(0) * ab_scale_0;
-                D(1) += ACC(1) * ab_scale_0;
-                D(4) += ACC(4) * ab_scale_0;
-                D(5) += ACC(5) * ab_scale_0;
-                D(2) += ACC(2) * ab_scale_1;
-                D(3) += ACC(3) * ab_scale_1;
-                D(6) += ACC(6) * ab_scale_1;
-                D(7) += ACC(7) * ab_scale_1;
+                D(0) += ACC(0) * a_scale_regs[0] * b_scale_regs[0];
+                D(1) += ACC(1) * a_scale_regs[0] * b_scale_regs[1];
+                D(2) += ACC(2) * a_scale_regs[1] * b_scale_regs[0];
+                D(3) += ACC(3) * a_scale_regs[1] * b_scale_regs[1];
+                D(4) += ACC(4) * a_scale_regs[0] * b_scale_regs[2];
+                D(5) += ACC(5) * a_scale_regs[0] * b_scale_regs[3];
+                D(6) += ACC(6) * a_scale_regs[1] * b_scale_regs[2];
+                D(7) += ACC(7) * a_scale_regs[1] * b_scale_regs[3];
     #undef ACC
     #undef D
             }
@@ -1233,7 +1247,7 @@ using b16 = utils::b16;
 
 
 class HostLauncherGenerator(CodeGenerator):
-    def __init__(self, key_types: Iterable[Key_T]):
+    def __init__(self, key_types: Collection[Key_T]):
         self.key_types = key_types
 
     def generate(self) -> str:
@@ -1324,14 +1338,16 @@ class NaiveGenerator(CodeGenerator):
         self,
         include_generator: CodeGenerator,
         predefined_generator: CodeGenerator,
+        shared_memory_generator: CodeGenerator,
         signature_generator: CodeGenerator,
         producer_generator: CodeGenerator,
         consumer_generator: CodeGenerator,
         host_launcher_generator: CodeGenerator,
-        key_types: Iterable[Key_T],
+        key_types: Collection[Key_T],
     ):
         self.include_generator = include_generator
         self.predefined_generator = predefined_generator
+        self.shared_memory_generator = shared_memory_generator
         self.signature_generator = signature_generator
         self.producer_generator = producer_generator
         self.consumer_generator = consumer_generator
@@ -1340,9 +1356,6 @@ class NaiveGenerator(CodeGenerator):
 
 
     def generate_template_keys(self, *key_types: Key_T) -> str:
-
-        x = key_type_to_cpp_Ttype(K_M)
-
         code = "template<"
         code += ", ".join(
             f"{key_type_to_cpp_Ttype(key_type)} {key_type}" for key_type in key_types
@@ -1499,6 +1512,7 @@ asm volatile("barrier.cluster.wait;\\n" : :);
         code = self.include_generator.generate()
         code += "namespace mxblas {\n"
         code += self.predefined_generator.generate()
+        code += self.shared_memory_generator.generate()
         code += self.generate_template_keys(*self.key_types)
         code = self.generate_body(code)
 

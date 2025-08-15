@@ -47,21 +47,15 @@ scalar_dtype_to_torch_dtype = {
     ScalarDType.FP32: torch.float32,
 }
 
-
-def get_layout(tensor_or_contiguous: Union[torch.Tensor, bool]) -> Layout:
-    if isinstance(tensor_or_contiguous, torch.Tensor):
-        return (
-            Layout.ROW_MAJOR
-            if tensor_or_contiguous.is_contiguous()
-            else Layout.COLUMN_MAJOR
-        )
-    elif isinstance(tensor_or_contiguous, bool):
-        return Layout.ROW_MAJOR if tensor_or_contiguous else Layout.COLUMN_MAJOR
+def get_layout(stride: Tuple) -> Layout:
+    if stride == (1, 1):
+        return Layout.DUAL_MAJOR
+    elif stride[1] == 1:
+        return Layout.ROW_MAJOR
+    elif stride[0] == 1:
+        return Layout.COLUMN_MAJOR
     else:
-        raise TypeError(
-            f"Expected tensor_or_contiguous to be a torch.Tensor or bool, got {type(tensor_or_contiguous)}."
-        )
-
+        assert False, "You should not reach here, stride is not valid."
 
 @lru_cache(maxsize=None)
 def get_meta_info(
@@ -76,10 +70,10 @@ def get_meta_info(
     right_size: torch.Size,
     left_scale_size: torch.Size,
     right_scale_size: torch.Size,
-    left_contiguous: bool,
-    right_contiguous: bool,
-    left_scale_contiguous: bool,
-    right_scale_contiguous: bool,
+    left_stride: Tuple[int, int],
+    right_stride: Tuple[int, int],
+    left_scale_stride: Tuple[int, int],
+    right_scale_stride: Tuple[int, int],
     out_transpose: bool,
     out_scale_transpose: bool,
 ) -> MXGEMMDescriptor:
@@ -164,10 +158,10 @@ def get_meta_info(
     qm, qn = quant_size
 
     ### Layout checks:
-    left_layout = get_layout(left_contiguous)
-    right_layout = get_layout(right_contiguous)
-    left_scale_layout = get_layout(left_scale_contiguous)
-    right_scale_layout = get_layout(right_scale_contiguous)
+    left_layout = get_layout(left_stride)
+    right_layout = get_layout(right_stride)
+    left_scale_layout = get_layout(left_scale_stride)
+    right_scale_layout = get_layout(right_scale_stride)
     out_layout = Layout.ROW_MAJOR if not out_transpose else Layout.COLUMN_MAJOR
     out_scale_layout = (
         Layout.ROW_MAJOR if not out_scale_transpose else Layout.COLUMN_MAJOR
@@ -394,10 +388,10 @@ def mx_gemm_kernel(
         right.shape,
         left_scale.shape,
         right_scale.shape,
-        left.is_contiguous(),
-        right.is_contiguous(),
-        left_scale.is_contiguous(),
-        right_scale.is_contiguous(),
+        left.stride(),
+        right.stride(),
+        left_scale.stride(),
+        right_scale.stride(),
         out_transpose,
         out_scale_transpose,
     )
@@ -457,5 +451,7 @@ def register_all_kernels():
     Register all MX-GEMM template."""
 
     import mxblas.gemm.naive_templates as naive_templates
+    import mxblas.gemm.tma_scales_template as tma_scales_template
 
     register_state.register(naive_templates.__name__)
+    register_state.register(tma_scales_template.__name__)

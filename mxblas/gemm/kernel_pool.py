@@ -145,7 +145,7 @@ run_kernel<{template_values}>(
                         + f" ::: template: {template.name()}"
                     },
                     space=space_pruned,
-                    # space=(space_pruned[0],),
+                    # space=(space_pruned[0] if not len(space_pruned) == 0 else {},),
                     includes=includes,
                     template=code,
                     arg_defs=arg_defs,

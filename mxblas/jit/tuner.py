@@ -4,6 +4,8 @@ import os
 import sys
 from typing import Any, Dict, Tuple, cast
 
+from mxblas.project.const import PROFILING_TIME_PATH
+
 from ..project import DEBUG_FLAG, PRINT_AUTOTUNE_FLAG
 from . import Runtime, build, cpp_format, generate
 
@@ -146,6 +148,13 @@ class JITTuner:
 
                 elapsed_time = GPU_bench(func, iters=8, kernel_name=kernel_tag)
                 times.append(elapsed_time)
+
+                timing_path = os.getenv(PROFILING_TIME_PATH, None)
+                if timing_path:
+                    with open(timing_path, "a") as f:
+                        f.write(
+                            f"{name}|{keys}:::{tuned_keys}, time: {elapsed_time:.4f}ms\n"
+                        )
             else:
                 elapsed_time = 0
 

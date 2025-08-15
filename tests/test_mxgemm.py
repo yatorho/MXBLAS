@@ -16,6 +16,8 @@ def run(M, N, K, SM, SN, SK, quant=False, QN=16, repeats=8, warmup=8):
 
     a_fp8, a_scales = utils.block_quant(a_bf16, (SM, SK))
     b_fp8, b_scales = utils.block_quant(b_bf16, (SN, SK))
+    # a_scales = a_scales.T.contiguous().T
+    # b_scales = b_scales.T.contiguous().T
 
     def kernel():
         result = mxblas.mx_gemm_kernel(

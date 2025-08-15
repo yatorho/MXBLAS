@@ -489,7 +489,8 @@ def key_value_to_cpp_Tvalue(key_type: Key_T, value: Any) -> str:
         assert isinstance(
             value, Layout
         ), f"Expected Layout for {key_type.name}, got {type(value)}"
-        cpp_value = "Layout::" + value.value
+        layout_value = value.value if not value == Layout.DUAL_MAJOR else "ROW_MAJOR"
+        cpp_value = "Layout::" + layout_value
     elif type is ScalarDType:
         assert isinstance(
             value, ScalarDType
@@ -632,7 +633,7 @@ class Condition:
 
     def IN(
         self, var: Union[Key_T, Any], values: List[Union[Key_T, Any]]
-    ) -> "Condition":
+    ) -> Self:
         """
         Checks if the variable `var` is in the list of `values`.
         """

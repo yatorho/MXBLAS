@@ -112,7 +112,7 @@ class TemplateManager:
                 matched_templates.append(template)
 
         if not matched_templates:
-            raise ValueError(f"No matching template found for descriptor: {descriptor}")
+            raise ValueError(f"No matching template (all {len(self.templates)}) found for descriptor: {descriptor}")
 
         # Cache the matched templates for the descriptor
         self.cache[descriptor] = matched_templates
