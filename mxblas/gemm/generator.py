@@ -688,7 +688,7 @@ class ConsumerGenerator(CodeGenerator):
             ABScaleType a_scale_regs[NumAScalesIn16x16Tile];
 
             a_scale_regs[0] = __ldg(&a_scales[s_row_0 / SM * scale_stride + block_k_iter * BK / SK]);
-            a_scale_regs[1] = __ldg(&a_scales[s_row_1 / SM * scale_stride + block_k_iter * BK / SK]);
+            // a_scale_regs[1] = __ldg(&a_scales[s_row_1 / SM * scale_stride + block_k_iter * BK / SK]);
 
     #pragma unroll
             for (int w = 0; w < WGMMA_N; w += 16) {
@@ -696,9 +696,9 @@ class ConsumerGenerator(CodeGenerator):
                 ABScaleType b_scale_regs[NumBScalesIn16x16Tile];
 
                 b_scale_regs[0] = __ldg(&b_scales[(s_col + 0) / SN * scale_stride + block_k_iter * BK / SK]);
-                b_scale_regs[1] = __ldg(&b_scales[(s_col + 1) / SN * scale_stride + block_k_iter * BK / SK]);
-                b_scale_regs[2] = __ldg(&b_scales[(s_col + 8) / SN * scale_stride + block_k_iter * BK / SK]);
-                b_scale_regs[3] = __ldg(&b_scales[(s_col + 9) / SN * scale_stride + block_k_iter * BK / SK]);
+                // b_scale_regs[1] = __ldg(&b_scales[(s_col + 1) / SN * scale_stride + block_k_iter * BK / SK]);
+                // b_scale_regs[2] = __ldg(&b_scales[(s_col + 8) / SN * scale_stride + block_k_iter * BK / SK]);
+                // b_scale_regs[3] = __ldg(&b_scales[(s_col + 9) / SN * scale_stride + block_k_iter * BK / SK]);
 
     #define D(i) d[m_it][w / 16][i]
     #define ACC(i) acc[m_it][w / 16][i]
