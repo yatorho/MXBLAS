@@ -175,10 +175,21 @@ repeats = 8
 
 csv_head = "Model,M,N,K,SM,SN,SK,Q,QN,SP,Method,Time(ms),TFLOPS,Bandwidth(GB/s)\n"
 
+def write_if_empty(filename, text):
+    import os
+
+    if not os.path.exists(filename):
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(text)
+        return
+
+    if os.path.getsize(filename) == 0:
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(text)
+
 
 def main(models, Ms, scaling_patterns, quant_output, quant_size, output_file):
-    with open(output_file, "a") as f:
-        f.write(csv_head)
+    write_if_empty(output_file, csv_head)
 
     print(f"Running all models: {models}")
     for model in models:
