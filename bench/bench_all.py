@@ -178,12 +178,7 @@ csv_head = "Model,M,N,K,SM,SN,SK,Q,QN,SP,Method,Time(ms),TFLOPS,Bandwidth(GB/s)\
 def write_if_empty(filename, text):
     import os
 
-    if not os.path.exists(filename):
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write(text)
-        return
-
-    if os.path.getsize(filename) == 0:
+    if not os.path.exists(filename) or os.path.getsize(filename) == 0:
         with open(filename, "w", encoding="utf-8") as f:
             f.write(text)
 
